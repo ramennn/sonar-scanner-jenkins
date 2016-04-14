@@ -16,7 +16,14 @@ CI)
   #regular_mvn_build_deploy_analyze
   
   # Do not deploy a SNAPSHOT version but the release version related to this build
-  set_maven_build_version $TRAVIS_BUILD_NUMBER  
+  #set_maven_build_version $TRAVIS_BUILD_NUMBER 
+  echo TRAVIS_BUILD_NUMBER:$TRAVIS_BUILD_NUMBER
+  CURRENT_VERSION=`mvn help:evaluate -Dexpression="project.version" | grep -v '^\[\|Download\w\+\:'`
+  echo CURRENT_VERSION:$CURRENT_VERSION
+  RELEASE_VERSION=`echo $CURRENT_VERSION | sed "s/-.*//g"`
+  echo RELEASE_VERSION:$RELEASE_VERSION
+  NEW_VERSION="$RELEASE_VERSION-build$TRAVIS_BUILD_NUMBER"
+  echo NEW_VERSION:$NEW_VERSION 
  
   # the profile "deploy-sonarsource" is defined in parent pom v28+
   mvn deploy \ 
