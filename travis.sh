@@ -17,7 +17,8 @@ CI)
   SONAR_PROJECT_VERSION=`maven_expression "project.version"`
  
   # Do not deploy a SNAPSHOT version but the release version related to this build
-  set_maven_build_version $TRAVIS_BUILD_NUMBER
+  #set_maven_build_version $TRAVIS_BUILD_NUMBER
+  mvn versions:set -DgenerateBackupPoms=false -DnewVersion=2.5-build1234
  
   # the profile "deploy-sonarsource" is defined in parent pom v28+
   mvn deploy \
