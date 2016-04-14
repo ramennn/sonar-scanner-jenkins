@@ -28,6 +28,7 @@ CI)
   echo repo:$ARTIFACTORY_DEPLOY_REPO::default::$ARTIFACTORY_URL/$ARTIFACTORY_DEPLOY_REPO
   # the profile "deploy-sonarsource" is defined in parent pom v28+
   mvn deploy -DaltDeploymentRepository="$ARTIFACTORY_DEPLOY_REPO::default::$ARTIFACTORY_URL/$ARTIFACTORY_DEPLOY_REPO" \
+    -Dusername=$ARTIFACTORY_DEPLOY_USERNAME -Dpassword=$ARTIFACTORY_DEPLOY_PASSWORD \
     -Pdeploy-sonarsource \
     -B -e -V
   ;;
