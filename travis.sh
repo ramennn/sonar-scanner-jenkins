@@ -26,6 +26,11 @@ CI)
   echo NEW_VERSION:$NEW_VERSION 
   mvn versions:set -DgenerateBackupPoms=false -DnewVersion=$NEW_VERSION
   echo repo:$ARTIFACTORY_DEPLOY_REPO::default::$ARTIFACTORY_URL/$ARTIFACTORY_DEPLOY_REPO
+  
+  #since this project does not use our parent pom, we have to add server auth to the settings.xml
+  head -n -1 ~/.local/m2/settings-public.xml > ~/.m2/settings.xml
+  echo "<servers><server><id>$ARTIFACTORY_DEPLOY_REPO</id><username>$ARTIFACTORY_DEPLOY_USERNAME</username><password>$ARTIFACTORY_DEPLOY_PASSWORD</password></server></servers></settings>" >> ~/.m2/settings.xml
+
   # the profile "deploy-sonarsource" is defined in parent pom v28+
   mvn deploy -DaltDeploymentRepository="$ARTIFACTORY_DEPLOY_REPO::default::$ARTIFACTORY_URL/$ARTIFACTORY_DEPLOY_REPO" \
     -Dusername=$ARTIFACTORY_DEPLOY_USERNAME -Dpassword=$ARTIFACTORY_DEPLOY_PASSWORD \
