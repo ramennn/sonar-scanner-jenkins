@@ -24,7 +24,7 @@ CI)
   echo RELEASE_VERSION:$RELEASE_VERSION
   NEW_VERSION="$RELEASE_VERSION-build$TRAVIS_BUILD_NUMBER"
   echo NEW_VERSION:$NEW_VERSION 
-  mvn versions:set -DgenerateBackupPoms=false -DnewVersion=$NEW_VERSION
+  mvn versions:set -DgenerateBackupPoms=false -DnewVersion="$NEW_VERSION"
   echo repo:$ARTIFACTORY_DEPLOY_REPO::default::$ARTIFACTORY_URL/$ARTIFACTORY_DEPLOY_REPO
   
 
