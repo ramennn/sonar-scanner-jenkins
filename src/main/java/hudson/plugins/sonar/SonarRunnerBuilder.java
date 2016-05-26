@@ -39,6 +39,7 @@ import hudson.Extension;
 import hudson.FilePath;
 import hudson.Launcher;
 import hudson.Util;
+import hudson.maven.agent.AbortException;
 import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
 import hudson.model.Action;
@@ -80,6 +81,12 @@ public class SonarRunnerBuilder extends Builder implements SimpleBuildStep {
   private final String additionalArguments;
 
   /**
+   * @deprecated since 2.5 replaced by {@link #jdkName}
+   */
+  @Deprecated
+  private transient String jdk;
+
+  /**
    * Identifies {@link JDK} to be used.
    * Null if no explicit configuration is required.
    *
@@ -88,8 +95,9 @@ public class SonarRunnerBuilder extends Builder implements SimpleBuildStep {
    * are saved independently.
    *
    * @see jenkins.model.Jenkins#getJDK(String)
+   * @since 2.5
    */
-  private String jdk;
+  private String jdkName;
 
   /**
    * Identifies {@link SonarRunnerInstallation} to be used.
@@ -112,14 +120,14 @@ public class SonarRunnerBuilder extends Builder implements SimpleBuildStep {
   private final String task;
 
   @DataBoundConstructor
-  public SonarRunnerBuilder(String installationName, String sonarScannerName, String project, String properties, String javaOpts, String jdk, String task,
+  public SonarRunnerBuilder(String installationName, String sonarScannerName, String project, String properties, String javaOpts, String jdkName, String task,
     String additionalArguments) {
     this.installationName = installationName;
     this.sonarScannerName = sonarScannerName;
     this.javaOpts = javaOpts;
     this.project = project;
     this.properties = properties;
-    this.jdk = jdk;
+    this.jdkName = jdkName;
     this.task = task;
     this.additionalArguments = additionalArguments;
   }
@@ -150,15 +158,15 @@ public class SonarRunnerBuilder extends Builder implements SimpleBuildStep {
    * Gets the JDK that this Sonar builder is configured with, or null.
    */
   public JDK getJDK() {
-    return Jenkins.getInstance().getJDK(jdk);
+    return Jenkins.getInstance().getJDK(jdkName);
   }
 
   public String getJdkName() {
-    return jdk;
+    return jdkName;
   }
 
-  public void setJdkName(String jdk) {
-    this.jdk = jdk;
+  public void setJdkName(String jdkName) {
+    this.jdkName = jdkName;
   }
 
   /**
@@ -214,7 +222,15 @@ public class SonarRunnerBuilder extends Builder implements SimpleBuildStep {
 
   @Override
   public void perform(Run<?, ?> run, FilePath workspace, Launcher launcher, TaskListener listener) throws InterruptedException, IOException {
-    performInternal(run, workspace, launcher, listener);
+    boolean success = performInternal(run, workspace, launcher, listener);
+    if (!success) {
+      throw new AbortException("Error during execution of the SonarQube Scanner");
+    }
+  }
+
+  @Override
+  public boolean perform(AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener) throws IOException, InterruptedException {
+    return performInternal(build, build.getWorkspace(), launcher, listener);
   }
 
   private boolean performInternal(Run<?, ?> run, FilePath workspace, Launcher launcher, TaskListener listener) throws IOException, InterruptedException {
@@ -230,7 +246,7 @@ public class SonarRunnerBuilder extends Builder implements SimpleBuildStep {
     if (sri == null) {
       args.add(launcher.isUnix() ? "sonar-runner" : "sonar-runner.bat");
     } else {
-      sri = BuilderUtils.getBuildTool(sri, env, listener);
+      sri = BuilderUtils.getBuildTool(sri, env, listener, workspace);
       String exe = sri.getExecutable(launcher);
       if (exe == null) {
         Logger.printFailureMessage(listener);
@@ -250,7 +266,7 @@ public class SonarRunnerBuilder extends Builder implements SimpleBuildStep {
     }
 
     // Java
-    computeJdkToUse(run, workspace, listener, env);
+    computeJdkToUse(run, workspace, listener, env, workspace);
 
     // Java options
     env.put("SONAR_RUNNER_OPTS", getJavaOpts());
@@ -268,11 +284,6 @@ public class SonarRunnerBuilder extends Builder implements SimpleBuildStep {
     // if the analyis doesn't succeed, it will also be null
     SonarUtils.addBuildInfoTo(run, getSonarInstallation().getName());
     return r == 0;
-  }
-
-  @Override
-  public boolean perform(AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener) throws IOException, InterruptedException {
-    return performInternal(build, build.getWorkspace(), launcher, listener);
   }
 
   private void handleErrors(Run<?, ?> build, TaskListener listener, SonarRunnerInstallation sri, long startTime, IOException e) {
@@ -301,10 +312,10 @@ public class SonarRunnerBuilder extends Builder implements SimpleBuildStep {
     return project;
   }
 
-  private void computeJdkToUse(Run<?, ?> build, FilePath workspace, TaskListener listener, EnvVars env) throws IOException, InterruptedException {
+  private void computeJdkToUse(Run<?, ?> build, FilePath workspace, TaskListener listener, EnvVars env, FilePath ws) throws IOException, InterruptedException {
     JDK jdkToUse = getJdkToUse(getProject(build));
     if (jdkToUse != null) {
-      Computer computer = Computer.currentComputer();
+      Computer computer = ws.toComputer();
       // just in case we are not in a build
       if (computer != null) {
         jdkToUse = jdkToUse.forNode(computer.getNode(), listener);
@@ -410,9 +421,12 @@ public class SonarRunnerBuilder extends Builder implements SimpleBuildStep {
   }
 
   protected Object readResolve() {
-    // Migrate old field to new field
+    // Migrate old fields to new fields
     if (sonarRunnerName != null) {
       sonarScannerName = sonarRunnerName;
+    }
+    if (jdk != null) {
+      jdkName = jdk;
     }
     return this;
   }
